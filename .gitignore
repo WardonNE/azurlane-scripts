@@ -5,4 +5,4 @@ extract
 input
 bin/waifu2x
 .vscode
-!config.json
+*.backup
