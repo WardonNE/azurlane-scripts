@@ -323,7 +323,7 @@ class AzurlaneScript
                 $this->downloadAvatar(strval($skinCode));
             }
         }
-        file_put_contents($this->config['data_json'], jsonEncode($data));
+        file_put_contents($this->config['data_json'], jsonEncode(array_values($data)));
     }
 
     public function downloadAvatar(string $code) 
