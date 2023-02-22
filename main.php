@@ -317,7 +317,10 @@ class AzurlaneScript
                 }
                 $spinePath = $this->config['spine_output'] . DS . $skinCode;
                 if(is_dir($spinePath)) {
-                    $skin['spine'] = $skinCode . '/' . $skinCode . '.skel';
+                    $skin['spine'] = [
+                        'skel' => $skinCode . '/' . $skinCode . '.skel',
+                        'atlas' => $skinCode . '/' . $skinCode . '.atlas',
+                    ];
                 }
                 $data[$shipCode]['skins'][] = $skin;
                 $this->downloadAvatar(strval($skinCode));
