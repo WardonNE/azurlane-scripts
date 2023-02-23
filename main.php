@@ -289,6 +289,7 @@ class AzurlaneScript
                 'avatar' => $shipCode.'.png',
                 'type' => $shipInfo['type'],
                 'rarity' => $shipInfo['rarity'],
+                'nationality' => $shipInfo['nationality'],
                 'skins' => [],
             ];
             $this->downloadAvatar(strval($shipCode));
