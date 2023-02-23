@@ -286,7 +286,7 @@ class AzurlaneScript
             $data[$shipCode] = [
                 'code' => strval($shipCode),
                 'name' => $shipInfo['name'],
-                'avatar' => $shipCode . '/' .  $shipCode.'.png',
+                'avatar' => $shipCode.'.png',
                 'type' => $shipInfo['type'],
                 'rarity' => $shipInfo['rarity'],
                 'nationality' => $shipInfo['nationality'],
