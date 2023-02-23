@@ -284,9 +284,9 @@ class AzurlaneScript
         $data = [];
         foreach($this->ships as $shipCode => $shipInfo) {
             $data[$shipCode] = [
-                'code' => $shipCode,
+                'code' => strval($shipCode),
                 'name' => $shipInfo['name'],
-                'avatar' => $shipCode.'.png',
+                'avatar' => $shipCode . '/' .  $shipCode.'.png',
                 'type' => $shipInfo['type'],
                 'rarity' => $shipInfo['rarity'],
                 'nationality' => $shipInfo['nationality'],
@@ -296,7 +296,7 @@ class AzurlaneScript
             $skins = $this->skins[$shipCode] ?? [];
             foreach($skins as $skinCode => $skinInfo) {
                 $skin = [
-                    'code' => $skinCode,
+                    'code' => strval($skinCode),
                     'name' => $skinInfo['name'],
                     'avatar' => $skinCode.'.png',
                     'painting' => $skinCode . '/' . $skinCode . '.png',
