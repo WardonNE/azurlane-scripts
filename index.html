@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <script src="https://static.wardonet.cn/live2d-viewer/js/spine-v3.6.52/spine-webgl.js"></script>
+    <title>Spine Painting Demo</title>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+</body>
+<script>
+const config = {
+    code: "huajia_2",
+};
+const models = [];
+const baseUrl = 'azurlane-resource/character/spinepainting/'+config.code;
+const canvas = document.getElementById("canvas");
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+const context = new spine.webgl.ManagedWebGLRenderingContext(canvas, {alpha: false});
+const gl = context.gl;
+const renderer = new spine.webgl.SceneRenderer(canvas, context);
+const assetManager = new spine.webgl.AssetManager(gl);
+const instances = [];
+const skeletonRenderer = new spine.webgl.SkeletonRenderer(gl);
+const shader = new spine.webgl.Shader.newTwoColoredTextured(gl);
+const batcher = new spine.webgl.PolygonBatcher(gl);
+const camera = renderer.camera;
+fetch('spine_painting_rects/'+config.code+'.json').then((response) => {
+    return response.json();
+}).then((data) => {
+    for(const part of Object.keys(data)) {
+        if(part == 'hitArea') continue;
+        models.push(part);
+    }
+
+    for(const model of models) {
+        assetManager.loadBinary(baseUrl+"/"+model+".skel");
+        assetManager.loadTextureAtlas(baseUrl+"/"+model+".atlas");
+    }
+
+    requestAnimationFrame(load);
+});
+
+
+
+function load() {
+    if(assetManager.isLoadingComplete()) {
+        for(model of models) {
+            const skeleton = loadSkeleton(model);
+            instances.push(skeleton);
+        }
+        requestAnimationFrame(render);
+
+        for(const instance of instances) {
+            console.log(instance);
+            if(!instance.image) {
+                console.log(instance)
+                instance.state.setAnimation(0, 'normal', true);
+            }
+        }
+
+    } else {
+        requestAnimationFrame(load);
+    }
+}
+
+let lastFrameTime = Date.now() / 1000;
+
+function render() {
+    for(const instance of instances) {
+        let now = Date.now() / 1000;
+        let delta = now - lastFrameTime;
+        lastFrameTime = now;
+        
+        resize(instance);
+
+        const state = instance.state;
+        const skeleton = instance.skeleton;
+        const bounds = instance.bounds;
+        const premultipliedAlpha = instance.premultipliedAlpha;
+
+        state.update(delta);
+        state.apply(skeleton);
+        skeleton.updateWorldTransform();
+
+        renderer.begin();
+        renderer.drawSkeleton(instance.skeleton, true);
+        renderer.end();
+    }
+    requestAnimationFrame(render);
+}
+
+function calculateBounds(skeleton) {
+    skeleton.setToSetupPose();
+    skeleton.updateWorldTransform();
+    var offset = new spine.Vector2();
+    var size = new spine.Vector2();
+    skeleton.getBounds(offset, size, []);
+    return { offset: offset, size: size };
+}
+
+function loadSkeleton(model) {
+    const atlas = assetManager.get(baseUrl+"/"+model+".atlas");
+    const atlasLoader = new spine.AtlasAttachmentLoader(atlas);
+    const skeletonBinary = new spine.SkeletonBinary(atlasLoader);
+    const skeletonData = skeletonBinary.readSkeletonData(assetManager.get(baseUrl+"/"+model+".skel"));
+    const skeleton = new spine.Skeleton(skeletonData);
+    const bounds = calculateBounds(skeleton);
+    const animationStateData = new spine.AnimationStateData(skeleton.data);
+    const animationState = new spine.AnimationState(animationStateData);
+    return {
+        skeleton: skeleton,
+        state: animationState,
+        bounds: bounds,
+        premultipliedAlpha: true,
+        image: false,
+    };
+}
+
+function loadTexture(model) {
+    const texture = assetManager.get(baseUrl+"/"+config.code+"-"+model.toUpperCase()+".png");
+    return {
+        texture: texture,
+        bounds: {
+            offset: {x: -109, y: 640},
+            size: {x: 3263, y: 2081},
+        },
+        image: true,
+
+    };
+}
+
+function resize(instance) {
+    const offset = instance.bounds.offset;
+    const size = instance.bounds.size;
+    // magic
+    const centerX = size.x / 2 + offset.x;
+    const centerY = size.y / 2 + offset.y;
+    var scaleX = size.x / canvas.width;
+    var scaleY = size.y / canvas.height;
+    var scale = Math.max(scaleX, scaleY) * 1.2;
+    if (scale < 1) scale = 1;
+    const width = canvas.width * scale;
+    const height = canvas.height * scale;
+    camera.position.x = centerX;
+    camera.position.y = centerY;
+    camera.viewportWidth = width;
+    camera.viewportHeight = height;
+    // renderer.resize(spine.webgl.ResizeMode.Fit);
+}
+</script>
+<style>
+    * {margin: 0; padding: 0;}
+    body {overflow: hidden;}
+</style>
+</html>

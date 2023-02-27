@@ -28,6 +28,10 @@ class AzurlaneScript
 
     private $parsedFaceRect = [];
 
+    private $archivedSpinePaintings = [];
+
+    private $parsedSpinePaintingRect = [];
+
     public function __construct()
     {
         $this->loadConfig();
@@ -35,6 +39,8 @@ class AzurlaneScript
         $this->loadRestoredPaintings();
         $this->loadArchivedFace();
         $this->loadParsedFaceRect();
+        $this->loadArchivedSpinePaintings();
+        $this->loadParsedSpinePaintingRect();
         $this->loadShips();
         $this->loadSkins();
     }
@@ -48,6 +54,8 @@ class AzurlaneScript
         file_put_contents($this->config['archived_face_json'], jsonEncode($this->archivedFace));
         file_put_contents('no_face.json', jsonEncode($this->noFace));
         file_put_contents($this->config['parsed_face_rect_json'], jsonEncode($this->parsedFaceRect));
+        file_put_contents($this->config['archived_spine_painting_json'], jsonEncode($this->archivedSpinePaintings));
+        file_put_contents($this->config['parsed_spine_painting_rect_json'], jsonEncode($this->parsedSpinePaintingRect));
     }
 
 
@@ -60,6 +68,20 @@ class AzurlaneScript
     {
         if (is_file($this->config['extracted_live2d_json'])) {
             $this->extractedLive2D = json_decode(file_get_contents($this->config['extracted_live2d_json']), true) ?? [];
+        }
+    }
+
+    public function loadArchivedSpinePaintings() 
+    {
+        if(is_file($this->config['archived_spine_painting_json'])) {
+            $this->archivedSpinePaintings = json_decode(file_get_contents($this->config['archived_spine_painting_json']), true);
+        }
+    }
+
+    public function loadParsedSpinePaintingRect() 
+    {
+        if(is_file($this->config['parsed_spine_painting_rect_json'])) {
+            $this->parsedSpinePaintingRect = json_decode(file_get_contents($this->config['parsed_spine_painting_rect_json']), true);
         }
     }
 
@@ -246,7 +268,7 @@ class AzurlaneScript
                     $this->execute($command);
                     
                     $txtPath = $unpackedInput . DS . $item . '.txt';
-                    $savePath = sprintf($this->config['local_face_rect_path'], $code);
+                    $savePath = sprintf($this->config['local_face_rect_path'], $this->config['spine_painting_special_code'][$code] ?? $code);
                     $command = implode(' ', ['php', 'parse.php', $txtPath, $savePath]);
                     $this->execute($command);
                     unlink($txtPath);
@@ -323,6 +345,10 @@ class AzurlaneScript
                         'atlas' => $skinCode . '/' . $skinCode . '.atlas',
                     ];
                 }
+                $spinePaintingPath = sprintf($this->config['spine_painting_output'], $skinCode);
+                if(is_dir($spinePaintingPath)) {
+                    $skin['spine_painting'] = $skinCode . '/config.json';
+                } 
                 $data[$shipCode]['skins'][] = $skin;
                 $this->downloadAvatar(strval($skinCode));
             }
@@ -362,6 +388,71 @@ class AzurlaneScript
         ]);
         $this->execute($copyCommand);
     }
+
+    public function archiveSpinePaintings() 
+    {
+        foreach($this->skins as $skins) {
+            foreach($skins as $code => $_) {
+                if(in_array($code, $this->archivedSpinePaintings)) {
+                    continue;
+                }
+                $spinePaintingInput = sprintf($this->config['spine_painting_input'], $code);
+                if(!is_dir($spinePaintingInput)) {
+                    continue;
+                }
+                $spinePaintingOutput = sprintf($this->config['spine_painting_output'], $code);
+                if(is_dir($spinePaintingOutput)) {
+                    $this->rmdir($spinePaintingOutput);
+                }
+                if(!is_dir($spinePaintingOutput)) {
+                    mkdir($spinePaintingOutput, 0777, true);
+                }
+                $files = scandir($spinePaintingInput);
+                foreach($files as $file) {
+                    if($file == '.' || $file == '..') continue;
+                    if(!is_dir(dirname($spinePaintingOutput . DS . str_replace('.asset', '', $file)))) {
+                        mkdir(dirname($spinePaintingOutput . DS . str_replace('.asset', '', $file)), 0777, true);
+                    }
+                    copy($spinePaintingInput . DS . $file, $spinePaintingOutput . DS . str_replace('.asset', '', $file));
+                }
+                $this->archivedSpinePaintings[] = $code;
+            }
+        }
+    }
+
+    public function parseSpinePaintingRect()
+    {
+        foreach($this->archivedSpinePaintings as $code) {
+            $unpackedInput = sprintf($this->config['spine_painting_unpack_input'], $code);
+            if(!is_dir($unpackedInput)) {
+                $outputPath = sprintf($this->config['spine_painting_output'], $code);
+                if(is_dir($outputPath)) {
+                    $this->rmdir($outputPath);
+                }
+                continue;
+            }
+            if(in_array($code, $this->parsedSpinePaintingRect)) continue;
+            $this->output('parsing spine painting rect: ' . $code);
+            $items = scandir($unpackedInput);
+            foreach($items as $item) {
+                if($item == '.' || $item == '..') {
+                    continue;
+                }
+                if(pathinfo($item, PATHINFO_EXTENSION) == '') {
+                    $command = implode(' ', [BINARY_2_TEXT, $unpackedInput . DS . $item]);
+                    $this->execute($command);
+                    $txtPath = $unpackedInput . DS . $item . '.txt';
+                    $savePath = sprintf($this->config['local_spine_painting_rect_json'], $code);
+                    $command = implode(' ', ['php', 'spine_painting_parse.php', $code, $txtPath, $savePath]);
+                    $this->execute($command);
+                    unlink($txtPath);
+                    break;
+                }
+            }
+            $this->parsedSpinePaintingRect[] = $code;
+            $this->output('parsed spine painting rect: '.$code);
+        }
+    }
 }
 
 function main() 
@@ -378,6 +469,8 @@ function main()
         $script->restorePaintings();
         $script->archivePaintingFaces();
         $script->parseFaceRect();
+        // $script->archiveSpinePaintings();
+        // $script->parseSpinePaintingRect();
         $script->archiveSpine();
         $script->generateData();
     } catch(Throwable $e) {
